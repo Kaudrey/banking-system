@@ -7,6 +7,7 @@ import com.bnr.bank.models.WithdrawTransaction;
 import com.bnr.bank.repositories.CustomerRepo;
 
 import com.bnr.bank.repositories.WithdrawTransactionRepo;
+import com.bnr.bank.services.EmailService;
 import com.bnr.bank.services.WithdrawTransactionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,9 @@ public class WithdrawTransactionServiceImpl implements WithdrawTransactionServic
 
     @Autowired
     private CustomerRepo customerRepo;
+
+    @Autowired
+    private EmailService emailService;
 
     public WithdrawTransaction withdrawMoney(UUID customerId, Double amount) {
         Customer customer = customerRepo.findById(customerId)
@@ -47,6 +51,29 @@ public class WithdrawTransactionServiceImpl implements WithdrawTransactionServic
         transaction.setAmount(amount);
         transaction.setBankingDateTime(LocalDateTime.now());
         withdrawRepo.save(transaction);
+
+        String subject = "Withdraw Confirmation - BNR Bank";
+        String body = String.format("""
+                Hello %s,
+
+                This is to confirm that you've withdrew %.2f RWF into your account: %s.
+                Your new balance is: %.2f RWF.
+
+                Date: %s
+
+                Thank you for banking with us!
+
+                BNR Bank.
+                """,
+                customer.getFirstName(), // Make sure your Customer model has getFullName() or similar
+                amount,
+                customer.getAccount(),
+                customer.getBalance(),
+                transaction.getBankingDateTime()
+        );
+
+        emailService.sendTransactionConfirmation(customer.getEmail(), subject, body);
+
         return transaction;
     }
 }
